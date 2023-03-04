@@ -62,7 +62,7 @@ void DC1::init()
 
 bool DC1::moduleLed()
 {
-    if (WiFi.status() == WL_CONNECTED && (globalConfig.mqtt.port ==0 || Mqtt::mqttClient.connected()))
+    if (WiFi.status() == WL_CONNECTED && Mqtt::mqttClient.connected())
     {
         if (config.wifi_led == 0)
         {
@@ -184,19 +184,30 @@ void DC1::mqttDiscovery(bool isEnable)
         {
             cmndTopic[strlen(cmndTopic) - 1] = ch + 49;           // 48 + 1 + ch
             powerStatTopic[strlen(powerStatTopic) - 1] = ch + 49; // 48 + 1 + ch
-            sprintf(message,
-                    PSTR("{\"name\":\"%s_%d\","
-                         "\"cmd_t\":\"%s\","
-                         "\"stat_t\":\"%s\","
-                         "\"pl_off\":\"off\","
-                         "\"pl_on\":\"on\","
-                         "\"avty_t\":\"%s\","
-                         "\"pl_avail\":\"online\","
-                         "\"pl_not_avail\":\"offline\"}"),
+            sprintf(message, PSTR("{\"name\":\"%s_%d\","
+                                  "\"command_topic\":\"%s\","
+                                  "\"state_topic\":\"%s\","
+                                  "\"payload_off\":\"off\","
+                                  "\"payload_on\":\"on\","
+                                  "\"availability_topic\":\"%s\","
+                                  "\"payload_available\":\"online\","
+                                  "\"payload_not_available\":\"offline\","
+                                  "\"unique_id\":\"%s_%d\","
+                                  "\"device\":{"
+                                  "\"identifiers\":\"%s\","
+                                  "\"name\":\"%s\","
+                                  "\"sw_version\":\"esp_relay-%s\","
+                                  "\"model\":\"esp_relay\","
+                                  "\"manufacturer\":\"espressif\"}}"
+                                  ),
                     UID, (ch + 1),
                     cmndTopic,
                     powerStatTopic,
-                    availability.c_str());
+                    availability.c_str(),
+                    UID, (ch + 1),
+                    UID,
+                    UID,
+                    getModuleVersion().c_str());
             Mqtt::publish(topic, message, true);
             //Debug::AddInfo(PSTR("discovery: %s - %s"), topic, message);
         }
@@ -214,22 +225,48 @@ void DC1::mqttDiscovery(bool isEnable)
         sprintf(topic, PSTR("%s/sensor/%s_%s/config"), globalConfig.mqtt.discovery_prefix, UID, tims[i].c_str());
         if (isEnable)
         {
+            //starttime
             if (tims2[i].length() == 0)
             {
-                sprintf(message,
-                        PSTR("{\"name\":\"%s_%s\","
-                             "\"stat_t\":\"%s\","
-                             "\"val_tpl\":\"{{value_json.%s}}\"}"),
-                        UID, tims[i].c_str(), energy.c_str(), tims[i].c_str());
+                sprintf(message, PSTR("{\"name\":\"%s_%s\","
+                                    "\"state_topic\":\"%s\","
+                                    "\"value_template\":\"{{value_json.%s}}\","
+                                    "\"unique_id\":\"%s_%s\","
+                                    "\"device\":{"
+                                    "\"identifiers\":\"%s\","
+                                    "\"name\":\"%s\","
+                                    "\"sw_version\":\"esp_dc1-%s\","
+                                    "\"model\":\"esp_relay\","
+                                    "\"manufacturer\":\"espressif\"}}"),
+                        UID, tims[i].c_str(),
+                        energy.c_str(),
+                        tims[i].c_str(),
+                        UID, tims[i].c_str(),
+                        UID,
+                        UID,
+                        getModuleVersion().c_str());
             }
             else
             {
-                sprintf(message,
-                        PSTR("{\"name\":\"%s_%s\","
-                             "\"stat_t\":\"%s\","
-                             "\"val_tpl\":\"{{value_json.%s}}\","
-                             "\"unit_of_meas\":\"%s\"}"),
-                        UID, tims[i].c_str(), energy.c_str(), tims[i].c_str(), tims2[i].c_str());
+                sprintf(message, PSTR("{\"name\":\"%s_%s\","
+                                    "\"state_topic\":\"%s\","
+                                    "\"value_template\":\"{{value_json.%s}}\","
+                                    "\"unit_of_measurement\":\"%s\","
+                                    "\"unique_id\":\"%s_%s\","
+                                    "\"device\":{"
+                                    "\"identifiers\":\"%s\","
+                                    "\"name\":\"%s\","
+                                    "\"sw_version\":\"esp_dc1-%s\","
+                                    "\"model\":\"esp_relay\","
+                                    "\"manufacturer\":\"espressif\"}}"),
+                        UID, tims[i].c_str(),
+                        energy.c_str(),
+                        tims[i].c_str(),
+                        tims2[i].c_str(),
+                        UID, tims[i].c_str(),
+                        UID,
+                        UID,
+                        getModuleVersion().c_str());
             }
             Mqtt::publish(topic, message, true);
             //Debug::AddInfo(PSTR("discovery: %s - %s"), topic, message);
@@ -658,7 +695,7 @@ void DC1::energyUpdate()
     {
         energyUpdateToday();
     }
-    if (perSecond % 3600 == 0 && cse7766->Energy.kWhtoday > 0)
+    if (perSecond % 301 == 0 && cse7766->Energy.kWhtoday > 0)
     {
         energySync();
         Config::saveConfig();
